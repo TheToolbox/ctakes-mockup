@@ -1,0 +1,129 @@
+<?php
+/**
+ * Generated DocBlock
+ *
+ * @package OpenEMR
+ * @link    http://www.open-emr.org
+ * @license https://github.com/openemr/openemr/blob/master/LICENSE GNU General Public License 3
+ */
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>ctakes testbed</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+    <style>
+        body {
+            width: 800px;
+        }
+
+        textarea {
+            width: 100%;
+            float: left;
+        }
+
+        input[type=submit] {
+            width: 100%;
+            padding: 10px;
+            max-width: 400px;
+            background-color: #55A;
+            color: white;
+            border-style: none;
+        }
+
+        .NN {
+            color: darkslategrey;
+        }
+
+        .NNP {
+            color: red;
+        }
+    </style>
+</head>
+
+<body class="container">
+    <main>
+        <form action="none" class="row">
+            <textarea name="text" id="" cols="30" rows="10" class="col-md-7"></textarea>
+            <input type="submit" class="col-md-4">
+        </form>
+        <h2>Result: </h2>
+        <div class="result row">
+
+        </div>
+    </main>
+</body>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+    let xmi;
+    (function () {
+        const form = document.querySelector('form');
+        const ctakesService = io('/ctakes');
+
+        form.addEventListener('submit', async function (ev) {
+            ev.preventDefault();
+            console.log('Sending parsing job: ' + form.text.value);
+            ctakesService.send(form.text.value, () => {
+                console.log("Server received request");
+            });
+        });
+        ctakesService.on('finished', text => {
+            console.log("Received result");
+            document.querySelector('div.result').innerHTML = parseXMI(text);
+        });
+
+        function parseXMI(text) {
+            const parser = new DOMParser();
+            xmi = parser.parseFromString(text, 'text/xml');
+            const words = Array.prototype.slice.call(xmi.querySelectorAll('*|WordToken,*|PunctuationToken,*|NewlineToken'));
+            const concepts = Array.prototype.slice.call(xmi.querySelectorAll('*|UmlsConcept'));
+            codes = {};
+            concepts.forEach(concept => {
+                const text = concept.attributes.preferredText.value;
+                if (!codes[text]) {
+                    if (concept.attributes.code) {
+                        codes[text] = [concept.attributes.codingScheme.value + ': ' + concept.attributes.code.value];
+                    }
+                } else {
+                    if (codes[text].indexOf(concept.attributes.codingScheme.value + ': ' + concept.attributes.code.value) < 0) {
+                        codes[text].push(concept.attributes.codingScheme.value + ': ' + concept.attributes.code.value);
+                    }
+                }
+            });
+            let result = '<ul class="codes col-md-4">';
+            for (let text in codes) {
+                result += '<li><h3>' + text + '</h3><ul>'
+                    + codes[text].reduce((prev, curr) => prev + '<li>' + curr + '</li>', '')
+                    + '</ul></li>';
+            }
+            result += '</ul>';
+            console.log(codes);
+            return result + '<div class="text col-md-8">' + words.filter(el => el.namespaceURI !== 'syntax')
+                .sort((a, b) => parseInt(a.attributes.begin.value) > parseInt(b.attributes.begin.value))
+                .map(word => {
+                    switch (word.tagName) {
+                        case 'syntax:WordToken': return ' <span class=' + word.attributes.partOfSpeech.value + '>' + word.attributes.normalizedForm.value + '</span>';
+                        case 'syntax:NewlineToken': return '
+';
+                        case 'syntax:PunctuationToken':
+                            const value = word.attributes.partOfSpeech.value;
+                            switch (value) {
+                                case 'HYPH': return '-';
+                                case '``': return '"';
+                                default: return value;
+                            }
+                        default:
+                            return '???';
+                    }
+                })
+                .join('') + '</div>';
+        }
+
+    })();
+
+</script>
+
+</html> 
