@@ -1,4 +1,5 @@
 # cTAKES subsystem
 
-This will likely be broken up and placed into more appropriate directories for organiztion, but for now keeping these files together is just easier
+## Installation and Use
 
+Make sure you've got nodejs installed. Clone and run `npm install`. To start the server, run `node server.js`. The server will be started on http://localhost:8888. 
