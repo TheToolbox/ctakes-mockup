@@ -106,7 +106,7 @@
                 .map(word => {
                     switch (word.tagName) {
                         case 'syntax:WordToken': return ' <span class=' + word.attributes.partOfSpeech.value + '>' + word.attributes.normalizedForm.value + '</span>';
-                        case 'syntax:NewlineToken': return '\n';
+                        case 'syntax:NewlineToken': return '<br/>';
                         case 'syntax:PunctuationToken':
                             const value = word.attributes.partOfSpeech.value;
                             switch (value) {
